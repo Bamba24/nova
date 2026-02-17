@@ -1,0 +1,165 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTHENTIFICATION SIMPLE
+// ============================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  password      String    // Hash bcrypt
+  role          UserRole  @default(USER)
+  emailVerified Boolean   @default(false)
+  image         String?
+  
+  // Relations métier
+  plannings     Planning[]
+  aiSuggestions AISuggestion[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([email])
+  @@map("user")
+}
+
+// ============================================
+// MÉTIER : PLANNINGS
+// ============================================
+
+model Planning {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String   // Ex: "Planning France - Février"
+  country   String   @default("FR") // Code pays
+  hours     String[] // Ex: ['10h', '13h', '16h', '19h']
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slots     Slot[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([country])
+  @@map("planning")
+}
+
+// ============================================
+// MÉTIER : CRÉNEAUX (SLOTS)
+// ============================================
+
+enum SlotStatus {
+  PLANNED    // Planifié
+  COMPLETED  // Effectué
+  CANCELLED  // Annulé
+}
+
+model Slot {
+  id         String     @id @default(uuid())
+  planningId String
+  
+  // Informations géographiques
+  city       String
+  postalCode String
+  latitude   Float
+  longitude  Float
+  
+  // Date et heure
+  day        String     // Ex: "Lundi", "Mardi"
+  date       DateTime   // Date complète
+  hour       String     // Heure formatée : '10h', '13h'
+  
+  // Statut et notes
+  status     SlotStatus @default(PLANNED)
+  notes      String?    // Notes optionnelles
+  
+  // Relations
+  planning   Planning   @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  
+  @@index([planningId])
+  @@index([date])
+  @@index([postalCode])
+  @@map("slot")
+}
+
+// ============================================
+// HISTORIQUE DES SUGGESTIONS IA
+// ============================================
+
+model AISuggestion {
+  id              String   @id @default(uuid())
+  userId          String
+  planningId      String?  // Planning associé (optionnel)
+  
+  // Paramètres de la requête
+  postalCode      String
+  countryCode     String   @default("FR")
+  
+  // Résultat de l'IA
+  suggestionsJson String   @db.Text  // JSON des suggestions
+  reasoning       String?  @db.Text  // Explication de l'IA
+  
+  // Statistiques
+  accepted        Boolean  @default(false)
+  acceptedSlotId  String?  // ID du slot créé si accepté
+  
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([userId])
+  @@index([planningId])
+  @@index([createdAt])
+  @@map("ai_suggestion")
+}
+
+// ============================================
+// LOGS ADMIN (pour monitoring)
+// ============================================
+
+enum AdminAction {
+  USER_CREATE
+  USER_UPDATE
+  USER_DELETE
+  ROLE_CHANGE
+  PLANNING_DELETE
+  SLOT_MODIFY
+}
+
+model AdminLog {
+  id          String      @id @default(uuid())
+  adminUserId String      // ID de l'admin
+  action      AdminAction // Type d'action
+  targetType  String      // "User", "Planning", "Slot"
+  targetId    String?     // ID de l'entité affectée
+  details     String?     @db.Text // JSON avec détails
+  ipAddress   String?
+  
+  createdAt   DateTime    @default(now())
+  
+  @@index([adminUserId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("admin_log")
+}
