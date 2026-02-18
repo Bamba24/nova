@@ -13,23 +13,6 @@ import {
   Planning as PlanningType, 
   Slot as SlotType 
 } from '@/types';
-import type { Metadata } from "next";
-
-
-export const metadata: Metadata = {
-  title: "Planning - Vos Plannings",
-  description: "Organisez vos plannings et vos déplacements et gagnez du temps.",
-  authors: [{ name: "Planning App" }],
-  creator: "Planning App",
-  robots: {
-    index: true,
-    follow: true,
-  },
-  icons: {
-    icon: "/logo-nova-blanc.jpg",
-    apple: "/logo-nova-blanc.jpg",
-  },
-};
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 
