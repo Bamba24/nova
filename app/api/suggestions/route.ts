@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ CORRIGÉ : Utilisation correcte des template literals
     console.log(`📍 Coordonnées trouvées: ${originCoords.city} (${originCoords.latitude}, ${originCoords.longitude})`);
 
     // Récupérer les plannings existants
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
       }))
     );
 
+    // ✅ CORRIGÉ : Utilisation correcte des template literals
     console.log(`📦 Contexte: ${existingSlots.length} créneaux existants`);
 
     // Appeler Gemini avec géolocalisation
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
       countryCode
     );
 
+    // ✅ CORRIGÉ : Utilisation correcte des template literals
     console.log(`📊 ${aiResult.suggestions.length} suggestions générées`);
 
     // Enrichir avec IDs
@@ -73,26 +76,35 @@ export async function POST(request: NextRequest) {
       diffDistance: s.distance,
     }));
 
-    // Sauvegarder dans la base de données
-    await prisma.aISuggestion.create({
-      data: {
-        userId: user.userId,
-        planningId,
-        postalCode,
-        countryCode,
-        suggestionsJson: JSON.stringify(enrichedSuggestions),
-        reasoning: aiResult.reasoning,
-        accepted: false,
-      },
-    });
-
-    console.log('💾 Suggestions saved to database');
+    // ✅ AJOUT : Vérifier si planningId existe avant de sauvegarder
+    if (planningId) {
+      try {
+        await prisma.aISuggestion.create({
+          data: {
+            userId: user.userId,
+            planningId,
+            postalCode,
+            countryCode,
+            suggestionsJson: JSON.stringify(enrichedSuggestions),
+            reasoning: aiResult.reasoning,
+            accepted: false,
+          },
+        });
+        console.log('💾 Suggestions saved to database');
+      } catch (dbError) {
+        console.error('⚠️ Erreur sauvegarde DB:', dbError);
+        // Continue quand même - on retourne les suggestions
+      }
+    } else {
+      console.log('⚠️ Pas de planningId fourni - suggestions non sauvegardées');
+    }
 
     return NextResponse.json({
       success: true,
       suggestions: enrichedSuggestions,
       reasoning: aiResult.reasoning,
     });
+
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Error generating suggestions:', error);
