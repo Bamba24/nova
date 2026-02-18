@@ -43,7 +43,7 @@ export default function CityModal({
           <div className="flex flex-col items-center justify-center py-12 text-gray-400">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
             <p className="text-lg font-medium text-gray-600">Recherche en cours...</p>
-            <p className="text-sm mt-1">Gemini AI cherche les villes proches</p>
+            <p className="text-sm mt-1">Recherche des villes proches</p>
           </div>
         )}
 
