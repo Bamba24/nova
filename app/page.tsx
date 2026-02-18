@@ -36,14 +36,6 @@ export default function Home() {
         >
           Se connecter
         </Link>
-
-        {/* Texte secondaire */}
-        <p className="text-sm text-gray-500 mt-4">
-          Pas encore de compte ?{" "}
-          <Link href="/auth/register" className="text-blue-600 font-medium hover:underline">
-            Créer un compte
-          </Link>
-        </p>
       </main>
     </div>
   );

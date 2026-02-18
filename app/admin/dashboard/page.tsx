@@ -60,19 +60,19 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/auth/me');
       if (!response.ok) {
-        router.push('/login');
+        router.push('/auth/login');
         return;
       }
 
       const data = await response.json();
       if (data.user.role !== 'ADMIN') {
-        router.push('/dashboard');
+        router.push('/plannings');
         return;
       }
 
       setCurrentUser(data.user);
     } catch (error) {
-      router.push('/login');
+      router.push('/auth/login');
     }
   };
 
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    router.push('/auth/login');
   };
 
   const handleDeleteUser = async (userId: string) => {
