@@ -297,6 +297,15 @@ export default function Planning() {
     return;
   }
 
+  // ✅ Vérifier qu'il y a au moins un planning
+  if (plannings.length === 0) {
+    alert('Créez d\'abord un planning pour recevoir des suggestions');
+    return;
+  }
+
+  // ✅ Prendre le premier planning ou laisser l'utilisateur choisir
+  const targetPlanningId = plannings[0].id;
+
   setShowPostalCodeModal(false);
   setIsCalculating(true);
 
@@ -304,7 +313,11 @@ export default function Planning() {
     const response = await fetch('/api/suggestions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ postalCode, countryCode: selectedCountry }),
+      body: JSON.stringify({ 
+        postalCode, 
+        countryCode: selectedCountry,
+        planningId: targetPlanningId  // ✅ AJOUT du planningId
+      }),
     });
 
     if (response.ok) {
@@ -321,6 +334,7 @@ export default function Planning() {
     setIsCalculating(false);
   }
 };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/auth/login');
