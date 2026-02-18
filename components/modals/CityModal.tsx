@@ -57,16 +57,9 @@ export default function CityModal({
                 onClick={() => onSelectCity?.(city)}
               >
                 <div className="text-lg font-medium text-gray-800">{city.name}</div>
-                {city.details && (
-                  <div className="text-sm text-gray-600">{city.details}</div>
-                )}
-                {city.distance !== undefined && (
-                  <div className="text-xs text-blue-600 font-semibold">
-                    📍 {city.distance} km
-                  </div>
-                )}
+                
                 {city.latitude && city.longitude && (
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="flex flex-col mt-1 text-xl text-gray-500">
                     {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
                   </div>
                 )}
