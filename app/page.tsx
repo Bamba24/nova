@@ -1,22 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Metadata } from "next";
 
-
-export const metadata: Metadata = {
-  title: "Planning - Gestion intelligente de vos tournées",
-  description: "Organisez vos plannings et vos déplacements et gagnez du temps.",
-  authors: [{ name: "Planning App" }],
-  creator: "Planning App",
-  robots: {
-    index: true,
-    follow: true,
-  },
-  icons: {
-    icon: "/logo-nova-blanc.jpg",
-    apple: "/logo-nova-blanc.jpg",
-  },
-};
 
 export default function Home() {
   return (
