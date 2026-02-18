@@ -291,30 +291,36 @@ export default function Planning() {
     );
   };
 
-  const confirmPostalCode = async () => {
-    setShowPostalCodeModal(false);
-    setIsCalculating(true);
-    try {
-      const response = await fetch('/api/suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postalCode, countryCode: selectedCountry }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSuggestions(data.suggestions);
-        setShowSuggestions(true);
-      } else {
-        alert('Erreur lors de la génération des suggestions');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Erreur lors de la génération des suggestions');
-    } finally {
-      setIsCalculating(false);
-    }
-  };
+ const confirmPostalCode = async () => {
+  if (!postalCode.trim()) {
+    alert('Veuillez entrer un code postal');
+    return;
+  }
 
+  setShowPostalCodeModal(false);
+  setIsCalculating(true);
+
+  try {
+    const response = await fetch('/api/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postalCode, countryCode: selectedCountry }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      setSuggestions(data.suggestions);
+      setShowSuggestions(true);
+    } else {
+      alert('Erreur lors de la génération des suggestions');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Erreur lors de la génération des suggestions');
+  } finally {
+    setIsCalculating(false);
+  }
+};
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');

@@ -8,11 +8,9 @@ import {
   MapPin,
   LogOut,
   UserPlus,
-  Trash2,
-  Shield,
   User,
   Activity,
-  TrendingUp,
+  Plus,
 } from 'lucide-react';
 import CreateUserModal from '@/components/admin/CreateUserModal';
 import StatsCard from '@/components/admin/StatsCard';
@@ -169,6 +167,13 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
+              <button
+                onClick={()=> router.push('/plannings')}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus size={20} />
+                Créer un planning
+              </button>
               <button
                 onClick={() => setShowCreateUser(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

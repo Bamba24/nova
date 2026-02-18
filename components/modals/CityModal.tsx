@@ -1,4 +1,5 @@
 'use client';
+
 import { CityModalProps, City } from '@/types';
 
 export default function CityModal({ 
@@ -12,6 +13,9 @@ export default function CityModal({
   onSelectCity,
 }: CityModalProps) {
   if (!isOpen) return null;
+
+  // ✅ Si aucune ville et recherche vide = état de chargement
+  const isLoading = cities.length === 0 && !citySearch;
 
   return (
     <div className="fixed inset-0 z-1000 flex items-start justify-center bg-black/10 backdrop-blur-sm bg-opacity-50">
@@ -34,30 +38,47 @@ export default function CityModal({
           onChange={(e) => setCitySearch(e.target.value)}
         />
         
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4 py-5 m-0 list-none" id="cityList">
-          {cities.map((city: City) => (
-            <div
-              key={city.id}
-              className="bg-gray-50 p-4 border border-gray-200 rounded-lg cursor-pointer transition-all hover:bg-gray-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col gap-2"
-              onClick={() => onSelectCity?.(city)}
-            >
-              <div className="text-lg font-medium text-gray-800">{city.name}</div>
-              {city.details && (
-                <div className="text-sm text-gray-600">{city.details}</div>
-              )}
-              {city.latitude && city.longitude && (
-                <div className="mt-1 text-xs text-gray-500">
-                  {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
-                </div>
-              )}
-            </div>
-          ))}
-          {cities.length === 0 && (
-            <div className="col-span-full text-center text-gray-500 py-8">
-              Aucune ville trouvée
-            </div>
-          )}
-        </div>
+        {/* ✅ État de chargement */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-lg font-medium text-gray-600">Recherche en cours...</p>
+            <p className="text-sm mt-1">Gemini AI cherche les villes proches</p>
+          </div>
+        )}
+
+        {/* ✅ Liste des villes (si pas en chargement) */}
+        {!isLoading && (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4 py-5 m-0 list-none" id="cityList">
+            {cities.map((city: City) => (
+              <div
+                key={city.id}
+                className="bg-gray-50 p-4 border border-gray-200 rounded-lg cursor-pointer transition-all hover:bg-gray-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col gap-2"
+                onClick={() => onSelectCity?.(city)}
+              >
+                <div className="text-lg font-medium text-gray-800">{city.name}</div>
+                {city.details && (
+                  <div className="text-sm text-gray-600">{city.details}</div>
+                )}
+                {city.distance !== undefined && (
+                  <div className="text-xs text-blue-600 font-semibold">
+                    📍 {city.distance} km
+                  </div>
+                )}
+                {city.latitude && city.longitude && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
+                  </div>
+                )}
+              </div>
+            ))}
+            {cities.length === 0 && (
+              <div className="col-span-full text-center text-gray-500 py-8">
+                Aucune ville trouvée
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
