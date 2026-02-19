@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     console.log(`🔍 Calcul suggestions pour ${postalCode}`);
 
     // 1. Obtenir les coordonnées du nouveau point
-    const newLocation = await getCoordinatesFromPostalCode(postalCode, countryCode);
+    const newLocation = await getCoordinatesFromPostalCode(postalCode);
     if (!newLocation) {
       return NextResponse.json({ error: 'Code postal invalide' }, { status: 400 });
     }
