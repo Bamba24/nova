@@ -200,51 +200,46 @@ export default function Planning() {
     }
   };
 
-  // ✅ MODIFIÉ : window.prompt → API cities/search → CityModal
-  const handleCellClick = async (planningId: string, day: string, hour: string) => {
-    // 1. Prompt natif du navigateur
+  // ✅ MODIFIÉ : Utilise maintenant la recherche géographique réelle
+const handleCellClick = async (planningId: string, day: string, hour: string) => {
     const inputPostalCode = window.prompt(`Code postal pour ${day} à ${hour} :`);
     if (!inputPostalCode || !inputPostalCode.trim()) return;
 
     setCurrentSlot({ planningId, day, hour });
-    setSearchedCities([]); // Reset
-    setShowCityModal(true); // Ouvrir modal (vide pendant chargement)
+    setSearchedCities([]); 
+    setShowCityModal(true); 
 
     try {
-      // 2. Appel API Gemini pour chercher les villes
-      const response = await fetch('/api/cities/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          postalCode: inputPostalCode.trim(),
-          countryCode: selectedCountry,
-        }),
-      });
+        // Appelle la route de recherche géographique (sans IA)
+        const response = await fetch('/api/cities/search-manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                postalCode: inputPostalCode.trim(),
+                countryCode: selectedCountry,
+            }),
+        });
 
-      if (!response.ok) throw new Error('Erreur recherche');
+        if (!response.ok) throw new Error('Erreur recherche');
+        const data = await response.json();
 
-      const data = await response.json();
+        const cities: City[] = data.cities.map((c: CitySearchResult) => ({
+            id: `${c.postalCode}-${c.name}`.toLowerCase().replace(/\s+/g, '-'),
+            name: c.name,
+            postalCode: c.postalCode,
+            details: c.details || `Ville en ${selectedCountry}`,
+            distance: c.distance,
+            latitude: c.latitude,
+            longitude: c.longitude,
+        }));
 
-      // 3. Transformer en format City
-      const cities: City[] = data.cities.map((c: CitySearchResult) => ({
-        id: `${c.postalCode}-${c.name}`.toLowerCase().replace(/\s+/g, '-'),
-        name: c.name,
-        postalCode: c.postalCode,
-        details: c.details,
-        distance: c.distance,
-        latitude: c.latitude,
-        longitude: c.longitude,
-      }));
-
-      setSearchedCities(cities);
-      setCitySearch('');
+        setSearchedCities(cities);
     } catch (error) {
-      console.error('Erreur recherche villes:', error);
-      alert('Erreur lors de la recherche des villes');
-      setShowCityModal(false);
-      setCurrentSlot(null);
+        console.error('Erreur recherche villes:', error);
+        alert('Code postal introuvable ou erreur réseau');
+        setShowCityModal(false);
     }
-  };
+};
 
   const handleCitySelect = async (city: City) => {
     if (!currentSlot) return;
@@ -297,26 +292,25 @@ export default function Planning() {
     return;
   }
 
-  // ✅ Vérifier qu'il y a au moins un planning
   if (plannings.length === 0) {
     alert('Créez d\'abord un planning pour recevoir des suggestions');
     return;
   }
 
-  // ✅ Prendre le premier planning ou laisser l'utilisateur choisir
   const targetPlanningId = plannings[0].id;
 
   setShowPostalCodeModal(false);
   setIsCalculating(true);
 
   try {
-    const response = await fetch('/api/suggestions', {
+    // ✅ Appeler la nouvelle route sans Gemini
+    const response = await fetch('/api/suggestions-manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         postalCode, 
         countryCode: selectedCountry,
-        planningId: targetPlanningId  // ✅ AJOUT du planningId
+        planningId: targetPlanningId
       }),
     });
 

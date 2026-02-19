@@ -59,8 +59,13 @@ export default function CityModal({
                 <div className="text-lg font-medium text-gray-800">{city.name}</div>
                 
                 {city.latitude && city.longitude && (
-                  <div className="flex flex-col mt-1 text-xl text-gray-500">
-                    {city.latitude.toFixed(4)}, {city.longitude.toFixed(4)}
+                  <div className="flex flex-col mt-1 text-sm text-gray-500">
+                  <span>
+                  Latitude  {city.latitude.toFixed(4)}
+                  </span>
+                  <span>
+                  Longitude  {city.longitude.toFixed(4)}
+                  </span>
                   </div>
                 )}
               </div>
