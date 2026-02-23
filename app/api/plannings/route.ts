@@ -1,10 +1,10 @@
-// app/api/plannings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
+import { createAdminLog, getIpFromRequest } from '@/lib/logger';
 
 /**
- * GET /api/plannings - Récupérer tous les plannings de l'utilisateur
+ * GET /api/plannings - Liste tous les plannings de l'utilisateur
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
@@ -19,18 +19,19 @@ export async function GET(request: NextRequest) {
         slots: {
           orderBy: { date: 'asc' },
         },
-        _count: {
-          select: { slots: true },
-        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ plannings });
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      plannings,
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching plannings:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération des plannings' },
+      { error: 'Erreur lors de la récupération', details: errorMessage },
       { status: 500 }
     );
   }
@@ -44,27 +45,12 @@ export async function POST(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   const { user } = authResult;
+  const ipAddress = getIpFromRequest(request);
 
   try {
     const body = await request.json();
-    const { name, hours, country = 'FR' } = body;
+    const { name, hours, country } = body;
 
-    // Validation
-    if (!name || !hours || !Array.isArray(hours)) {
-      return NextResponse.json(
-        { error: 'Nom et horaires requis' },
-        { status: 400 }
-      );
-    }
-
-    if (hours.length === 0) {
-      return NextResponse.json(
-        { error: 'Au moins un horaire doit être sélectionné' },
-        { status: 400 }
-      );
-    }
-
-    // Créer le planning
     const planning = await prisma.planning.create({
       data: {
         userId: user.userId,
@@ -72,21 +58,27 @@ export async function POST(request: NextRequest) {
         hours,
         country,
       },
-      include: {
-        _count: {
-          select: { slots: true },
-        },
-      },
     });
 
-    return NextResponse.json(
-      { success: true, planning },
-      { status: 201 }
-    );
-  } catch (error) {
+    // ✅ Logger la création du planning
+    await createAdminLog({
+      userId: user.userId,
+      action: 'PLANNING_CREATE',
+      targetType: 'PLANNING',
+      targetId: planning.id,
+      details: { name, country, hoursCount: hours.length },
+      ipAddress,
+    });
+
+    return NextResponse.json({
+      success: true,
+      planning,
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error creating planning:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la création du planning' },
+      { error: 'Erreur lors de la création', details: errorMessage },
       { status: 500 }
     );
   }

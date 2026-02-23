@@ -1,22 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/middleware';
+import { requireAuth } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAdmin(request);
+  const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
+  const { user } = authResult;
+
+  // Vérifier que l'utilisateur est admin
+  if (user.role !== 'ADMIN') {
+    return NextResponse.json(
+      { error: 'Accès non autorisé' },
+      { status: 403 }
+    );
+  }
+
   try {
+    // ✅ Récupérer les logs avec la relation user via adminUserId
     const logs = await prisma.adminLog.findMany({
-      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {  // ✅ La relation s'appelle "user" mais utilise adminUserId
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
       take: 100,
     });
 
-    return NextResponse.json({ logs });
-  } catch (error) {
-    console.error('Error fetching logs:', error);
+    console.log(`📊 ${logs.length} logs récupérés`);
+
+    return NextResponse.json({
+      success: true,
+      logs,
+    });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('❌ Error fetching logs:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération des logs' },
+      { error: 'Erreur lors de la récupération des logs', details: err.message },
       { status: 500 }
     );
   }

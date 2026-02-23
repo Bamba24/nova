@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
 import { SlotStatus } from '@prisma/client';
+import { createAdminLog, getIpFromRequest } from '@/lib/logger';
 
 /**
  * GET /api/slots - Récupérer tous les slots (avec filtres optionnels)
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult;
 
   const { user } = authResult;
+  const ipAddress = getIpFromRequest(request);
 
   try {
     const body = await request.json();
@@ -64,66 +66,60 @@ export async function POST(request: NextRequest) {
       latitude,
       longitude,
       day,
-      date,
       hour,
-      notes,
+      date,
     } = body;
 
-    // Validation
-    if (!planningId || !city || !postalCode || !day || !date || !hour) {
-      return NextResponse.json(
-        { error: 'Données manquantes' },
-        { status: 400 }
-      );
-    }
-
-    // Vérifier que le planning appartient à l'utilisateur
-    const planning = await prisma.planning.findFirst({
-      where: {
-        id: planningId,
-        userId: user.userId,
-      },
+    const planning = await prisma.planning.findUnique({
+      where: { id: planningId },
     });
 
-    if (!planning) {
+    if (!planning || planning.userId !== user.userId) {
       return NextResponse.json(
-        { error: 'Planning non trouvé' },
+        { error: 'Planning introuvable' },
         { status: 404 }
       );
     }
 
-    // Créer le slot
     const slot = await prisma.slot.create({
       data: {
         planningId,
         city,
         postalCode,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
+        latitude,
+        longitude,
         day,
-        date: new Date(date),
         hour,
-        notes,
+        date: new Date(date),
         status: 'PLANNED',
-      },
-      include: {
-        planning: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
       },
     });
 
-    return NextResponse.json(
-      { success: true, slot },
-      { status: 201 }
-    );
-  } catch (error) {
+    // ✅ Logger l'ajout du créneau
+    await createAdminLog({
+      userId: user.userId,
+      action: 'SLOT_CREATE',
+      targetType: 'SLOT',
+      targetId: slot.id,
+      details: { 
+        city, 
+        postalCode, 
+        day, 
+        hour,
+        planningName: planning.name 
+      },
+      ipAddress,
+    });
+
+    return NextResponse.json({
+      success: true,
+      slot,
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error creating slot:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la création du créneau' },
+      { error: 'Erreur lors de la création', details: errorMessage },
       { status: 500 }
     );
   }

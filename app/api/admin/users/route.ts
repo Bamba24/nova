@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       data: {
         adminUserId: admin.userId,
         action: 'USER_CREATE',
-        targetType: 'User',
+        targetType: 'USER',
         targetId: newUser.id,
         details: JSON.stringify({
           message: `Utilisateur ${newUser.email} créé`,

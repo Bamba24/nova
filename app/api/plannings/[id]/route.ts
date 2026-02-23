@@ -1,14 +1,14 @@
-// app/api/plannings/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
+import { createAdminLog, getIpFromRequest } from '@/lib/logger';
 
 /**
  * GET /api/plannings/[id] - Récupérer un planning spécifique
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }>}
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
@@ -20,7 +20,7 @@ export async function GET(
     const planning = await prisma.planning.findFirst({
       where: {
         id,
-        userId: user.userId, // S'assurer que l'utilisateur possède ce planning
+        userId: user.userId,
       },
       include: {
         slots: {
@@ -63,7 +63,6 @@ export async function PUT(
     const body = await request.json();
     const { name, hours, country } = body;
 
-    // Vérifier que le planning appartient à l'utilisateur
     const existingPlanning = await prisma.planning.findFirst({
       where: {
         id,
@@ -78,7 +77,6 @@ export async function PUT(
       );
     }
 
-    // Mettre à jour
     const planning = await prisma.planning.update({
       where: { id },
       data: {
@@ -106,40 +104,47 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise< { id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth(request);
   if (authResult instanceof NextResponse) return authResult;
 
   const { user } = authResult;
   const { id } = await params;
+  const ipAddress = getIpFromRequest(request);
 
   try {
-    // Vérifier que le planning appartient à l'utilisateur
-    const existingPlanning = await prisma.planning.findFirst({
-      where: {
-        id,
-        userId: user.userId,
-      },
+    const planning = await prisma.planning.findUnique({
+      where: { id },
     });
 
-    if (!existingPlanning) {
+    if (!planning || planning.userId !== user.userId) {
       return NextResponse.json(
-        { error: 'Planning non trouvé' },
+        { error: 'Planning introuvable ou non autorisé' },
         { status: 404 }
       );
     }
 
-    // Supprimer (les slots seront supprimés en cascade)
     await prisma.planning.delete({
       where: { id },
     });
 
-    return NextResponse.json({ success: true, message: 'Planning supprimé' });
-  } catch (error) {
+    // ✅ Logger la suppression
+    await createAdminLog({
+      userId: user.userId,
+      action: 'PLANNING_DELETE',
+      targetType: 'PLANNING',
+      targetId: id,
+      details: { name: planning.name },
+      ipAddress,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error deleting planning:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la suppression du planning' },
+      { error: 'Erreur lors de la suppression', details: errorMessage },
       { status: 500 }
     );
   }

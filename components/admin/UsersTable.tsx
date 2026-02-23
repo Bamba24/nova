@@ -22,7 +22,7 @@ interface UsersTableProps {
 export default function UsersTable({
   users,
   onDeleteUser,
-  onChangeRole,
+ // onChangeRole,
   currentUserId,
 }: UsersTableProps) {
   return (
@@ -73,7 +73,7 @@ export default function UsersTable({
                 <div className="text-sm text-gray-900">{user.email}</div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <select
+                {/* <select
                   value={user.role}
                   onChange={(e) =>
                     onChangeRole(user.id, e.target.value as 'USER' | 'ADMIN')
@@ -83,7 +83,8 @@ export default function UsersTable({
                 >
                   <option value="USER">USER</option>
                   <option value="ADMIN">ADMIN</option>
-                </select>
+                </select> */}
+                {user.role}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {user._count?.plannings || 0}

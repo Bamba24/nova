@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import CityModal from '@/components/modals/CityModal';
 import PlanningNameModal from '@/components/modals/PlanningNameModal';
 import PostalCodeModal from '@/components/modals/PostalCodeModal';
-import { LogOut, Trash2 } from 'lucide-react';
+import { LogOut, Trash2, X, Loader2 } from 'lucide-react'; // ✅ Ajout Loader2
 import { 
   City, 
   GeminiSuggestion, 
@@ -76,9 +76,19 @@ export default function Planning() {
   const [tempSelectedHours, setTempSelectedHours] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState('FR');
   const [postalCode, setPostalCode] = useState('');
-
-  // ✅ NOUVEAU : villes issues de la recherche Gemini
   const [searchedCities, setSearchedCities] = useState<City[]>([]);
+
+  // ✅ État pour la confirmation de suppression
+  const [slotToDelete, setSlotToDelete] = useState<{
+    planningId: string;
+    day: string;
+    hour: string;
+    slotId: string;
+    cityName: string;
+  } | null>(null);
+
+  // ✅ NOUVEAU : État de chargement pour la suppression
+  const [isDeletingSlot, setIsDeletingSlot] = useState(false);
 
   const checkAuth = async () => {
     try {
@@ -200,8 +210,13 @@ export default function Planning() {
     }
   };
 
-  // ✅ MODIFIÉ : Utilise maintenant la recherche géographique réelle
-const handleCellClick = async (planningId: string, day: string, hour: string) => {
+  const handleCellClick = async (planningId: string, day: string, hour: string) => {
+    const planning = plannings.find(p => p.id === planningId);
+    const slotKey = `${day}-${hour}`;
+    const existingSlot = planning?.slots[slotKey];
+
+    if (existingSlot) return;
+
     const inputPostalCode = window.prompt(`Code postal pour ${day} à ${hour} :`);
     if (!inputPostalCode || !inputPostalCode.trim()) return;
 
@@ -210,36 +225,37 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
     setShowCityModal(true); 
 
     try {
-        // Appelle la route de recherche géographique (sans IA)
-        const response = await fetch('/api/cities/search-manual', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                postalCode: inputPostalCode.trim(),
-                countryCode: selectedCountry,
-            }),
-        });
+      const response = await fetch('/api/cities/search-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postalCode: inputPostalCode.trim(),
+          countryCode: selectedCountry,
+        }),
+      });
 
-        if (!response.ok) throw new Error('Erreur recherche');
-        const data = await response.json();
+      if (!response.ok) throw new Error('Erreur recherche');
+      const data = await response.json();
 
-        const cities: City[] = data.cities.map((c: CitySearchResult) => ({
-            id: `${c.postalCode}-${c.name}`.toLowerCase().replace(/\s+/g, '-'),
-            name: c.name,
-            postalCode: c.postalCode,
-            details: c.details || `Ville en ${selectedCountry}`,
-            distance: c.distance,
-            latitude: c.latitude,
-            longitude: c.longitude,
-        }));
+      const cities: City[] = data.cities.map((c: CitySearchResult) => ({
+        id: `${c.postalCode}-${c.name}`.toLowerCase().replace(/\s+/g, '-'),
+        name: c.name,
+        postalCode: c.postalCode,
+        details: c.details || `Ville en ${selectedCountry}`,
+        distance: c.distance,
+        latitude: c.latitude,
+        longitude: c.longitude,
+      }));
 
-        setSearchedCities(cities);
+      setSearchedCities(cities);
+      setCitySearch('');
     } catch (error) {
-        console.error('Erreur recherche villes:', error);
-        alert('Code postal introuvable ou erreur réseau');
-        setShowCityModal(false);
+      console.error('Erreur recherche villes:', error);
+      alert('Code postal introuvable ou erreur réseau');
+      setShowCityModal(false);
+      setCurrentSlot(null);
     }
-};
+  };
 
   const handleCitySelect = async (city: City) => {
     if (!currentSlot) return;
@@ -280,54 +296,99 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
     }
   };
 
+  const handleDeleteSlot = (
+    e: React.MouseEvent,
+    planningId: string,
+    day: string,
+    hour: string,
+    slotId: string,
+    cityName: string
+  ) => {
+    e.stopPropagation();
+    setSlotToDelete({ planningId, day, hour, slotId, cityName });
+  };
+
+  // ✅ MODIFIÉ : Ajout du loading state
+  const confirmDeleteSlot = async () => {
+    if (!slotToDelete) return;
+
+    setIsDeletingSlot(true); // ✅ Activer le loading
+
+    try {
+      const response = await fetch(`/api/slots/${slotToDelete.slotId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setPlannings(prev => prev.map(planning => {
+          if (planning.id === slotToDelete.planningId) {
+            const key = `${slotToDelete.day}-${slotToDelete.hour}`;
+            const updatedSlots = { ...planning.slots };
+            delete updatedSlots[key];
+            return { ...planning, slots: updatedSlots };
+          }
+          return planning;
+        }));
+        setSlotToDelete(null);
+        console.log('✅ Créneau supprimé');
+      } else {
+        alert('Erreur lors de la suppression du créneau');
+      }
+    } catch (error) {
+      console.error('Error deleting slot:', error);
+      alert('Erreur lors de la suppression du créneau');
+    } finally {
+      setIsDeletingSlot(false); // ✅ Désactiver le loading
+    }
+  };
+
   const handleHourChange = (hour: string) => {
     setTempSelectedHours(prev =>
       prev.includes(hour) ? prev.filter(h => h !== hour) : [...prev, hour]
     );
   };
 
- const confirmPostalCode = async () => {
-  if (!postalCode.trim()) {
-    alert('Veuillez entrer un code postal');
-    return;
-  }
-
-  if (plannings.length === 0) {
-    alert('Créez d\'abord un planning pour recevoir des suggestions');
-    return;
-  }
-
-  const targetPlanningId = plannings[0].id;
-
-  setShowPostalCodeModal(false);
-  setIsCalculating(true);
-
-  try {
-    // ✅ Appeler la nouvelle route sans Gemini
-    const response = await fetch('/api/suggestions-manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        postalCode, 
-        countryCode: selectedCountry,
-        planningId: targetPlanningId
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      setSuggestions(data.suggestions);
-      setShowSuggestions(true);
-    } else {
-      alert('Erreur lors de la génération des suggestions');
+  const confirmPostalCode = async () => {
+    if (!postalCode.trim()) {
+      alert('Veuillez entrer un code postal');
+      return;
     }
-  } catch (error) {
-    console.error('Error:', error);
-    alert('Erreur lors de la génération des suggestions');
-  } finally {
-    setIsCalculating(false);
-  }
-};
+
+    if (plannings.length === 0) {
+      alert('Créez d\'abord un planning pour recevoir des suggestions');
+      return;
+    }
+
+    const targetPlanningId = plannings[0].id;
+
+    setShowPostalCodeModal(false);
+    setIsCalculating(true);
+
+    try {
+      const response = await fetch('/api/suggestions-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          postalCode, 
+          countryCode: selectedCountry,
+          planningId: targetPlanningId
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data.suggestions);
+        setShowSuggestions(true);
+      } else {
+        alert('Erreur lors de la génération des suggestions');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Erreur lors de la génération des suggestions');
+    } finally {
+      setIsCalculating(false);
+    }
+  };
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -385,13 +446,12 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
     }
   };
 
-  // ✅ Filtre sur les villes recherchées (plus de MOCK_CITIES)
   const filteredCities = searchedCities.filter(city =>
     city.name.toLowerCase().includes(citySearch.toLowerCase())
   );
 
   return (
-    <div className=" p-5 bg-slate-50 min-h-screen font-['Poppins']">
+    <div className="p-5 bg-slate-50 min-h-screen font-['Poppins']">
       <div className="bg-white rounded-xl shadow-lg p-8 animate-in fade-in duration-500">
         
         <h1 className="text-gray-800 text-center mb-8 text-4xl font-bold tracking-tight">
@@ -413,7 +473,7 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
               {suggestions.map((s) => (
                 <div
                   key={s.id}
-                  className="min-w-75 bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4"
+                  className="min-w-[300px] bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4"
                 >
                   <div>
                     <h4 className="text-gray-400 font-medium text-sm mb-1">{s.title}</h4>
@@ -431,7 +491,7 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
                   <hr className="border-gray-100" />
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">{s.compatibility}% compatible</span>
-                    <span className="text-gray-400 text-sm">{s.diffDistance} km</span>
+                    <span className="text-gray-400 text-sm">{Math.round(s.diffDistance)} km</span>
                   </div>
                   {s.reasoning && (
                     <p className="text-xs text-gray-500 italic">{s.reasoning}</p>
@@ -452,7 +512,7 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
           <select 
             value={selectedCountry}
             onChange={(e) => setSelectedCountry(e.target.value)}
-            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-45 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-[180px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           >
             {COUNTRIES.map(country => (
               <option key={country.code} value={country.code}>
@@ -466,7 +526,7 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
             value={quickPlanningName}
             onChange={(e) => setQuickPlanningName(e.target.value)}
             placeholder="Nom du planning"
-            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-55 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-[220px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           />
 
           <button
@@ -532,17 +592,34 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
                       <div
                         key={slotKey}
                         onClick={() => handleCellClick(planning.id, day, hour)}
-                        className={`p-4 border-l border-gray-100 min-h-25 cursor-pointer transition-all flex flex-col items-center justify-center relative ${
+                        className={`p-4 border-l border-gray-100 min-h-[100px] transition-all flex flex-col items-center justify-center relative group/cell ${
                           slot?.city 
-                            ? 'bg-green-50 hover:bg-green-100' 
-                            : 'hover:bg-blue-50 text-gray-300 hover:text-blue-500'
+                            ? 'bg-green-50 hover:bg-green-100 cursor-default' 
+                            : 'hover:bg-blue-50 text-gray-300 hover:text-blue-500 cursor-pointer'
                         }`}
                       >
                         {slot?.city ? (
-                          <div className="text-center">
-                            <p className="text-sm font-bold text-gray-900">{slot.city.name}</p>
-                            <p className="text-xs text-gray-600">{slot.city.postalCode}</p>
-                          </div>
+                          <>
+                            <div className="text-center pr-6">
+                              <p className="text-sm font-bold text-gray-900">{slot.city.name}</p>
+                              <p className="text-xs text-gray-600">{slot.city.postalCode}</p>
+                            </div>
+                            
+                            <button
+                              onClick={(e) => slot.city && handleDeleteSlot(
+                                e, 
+                                planning.id, 
+                                day, 
+                                hour, 
+                                slot.city.id, 
+                                slot.city.name
+                              )}
+                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover/cell:opacity-100 hover:bg-red-600 transition-all shadow-md"
+                              title="Supprimer ce créneau"
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
                         ) : (
                           <>
                             <span className="text-2xl font-light transform transition-transform hover:scale-150">+</span>
@@ -566,7 +643,42 @@ const handleCellClick = async (planningId: string, day: string, hour: string) =>
         )}
       </div>
 
-      {/* ✅ CityModal inchangée - reçoit maintenant les villes de Gemini */}
+      {/* ✅ Modale de confirmation avec loading */}
+      {slotToDelete && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Supprimer le créneau</h3>
+            <p className="text-gray-600 mb-6">
+              Voulez-vous vraiment supprimer le créneau <strong>{slotToDelete.cityName}</strong>
+              {' '}du <strong>{slotToDelete.day}</strong> à <strong>{slotToDelete.hour}</strong> ?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setSlotToDelete(null)}
+                disabled={isDeletingSlot} // ✅ Désactiver pendant le chargement
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmDeleteSlot}
+                disabled={isDeletingSlot} // ✅ Désactiver pendant le chargement
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center"
+              >
+                {isDeletingSlot ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  'Supprimer'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <CityModal
         isOpen={showCityModal}
         onClose={() => {
