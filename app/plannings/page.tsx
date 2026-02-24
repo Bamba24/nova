@@ -606,16 +606,20 @@ export default function Planning() {
                             </div>
                             
                             <button
-                              onClick={(e) => slot.city && handleDeleteSlot(
-                                e, 
-                                planning.id, 
-                                day, 
-                                hour, 
-                                slot.city.id, 
-                                slot.city.name
-                              )}
-                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover/cell:opacity-100 hover:bg-red-600 transition-all shadow-md"
-                              title="Supprimer ce créneau"
+                              onClick={(e) => {
+                                e.stopPropagation(); // ✅ Important pour ne pas ouvrir la modale d'ajout
+                                if (slot.city?.id) {
+                                  handleDeleteSlot(
+                                    e, 
+                                    planning.id, 
+                                    day, 
+                                    hour, 
+                                    slot.city.id, // C'est cet ID qui sera envoyé à l'API
+                                    slot.city.name
+                                  );
+                                }
+                              }}
+                              className="absolute top-2 right-2 p-1 bg-red-500 ..."
                             >
                               <X size={14} />
                             </button>
