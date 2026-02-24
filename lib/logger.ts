@@ -13,7 +13,10 @@ export type AdminAction =
 export type TargetType = 
   | 'USER'
   | 'PLANNING'
-  | 'SLOT';
+  | 'SLOT'
+  | 'User'
+  | 'Planning'
+  | 'Slot'
 
 interface CreateLogParams {
   userId: string;

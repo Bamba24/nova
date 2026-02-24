@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import CityModal from '@/components/modals/CityModal';
 import PlanningNameModal from '@/components/modals/PlanningNameModal';
 import PostalCodeModal from '@/components/modals/PostalCodeModal';
-import { LogOut, Trash2, X, Loader2 } from 'lucide-react'; // ✅ Ajout Loader2
+import { LogOut, Trash2, X, Loader2 } from 'lucide-react';
 import { 
   City, 
   GeminiSuggestion, 
@@ -78,7 +78,7 @@ export default function Planning() {
   const [postalCode, setPostalCode] = useState('');
   const [searchedCities, setSearchedCities] = useState<City[]>([]);
 
-  // ✅ État pour la confirmation de suppression
+  /* --- État suppression --- */
   const [slotToDelete, setSlotToDelete] = useState<{
     planningId: string;
     day: string;
@@ -87,7 +87,6 @@ export default function Planning() {
     cityName: string;
   } | null>(null);
 
-  // ✅ NOUVEAU : État de chargement pour la suppression
   const [isDeletingSlot, setIsDeletingSlot] = useState(false);
 
   const checkAuth = async () => {
@@ -257,11 +256,13 @@ export default function Planning() {
     }
   };
 
+  // ✅ CORRIGÉ : Récupérer le vrai ID du slot créé
   const handleCitySelect = async (city: City) => {
     if (!currentSlot) return;
     const { planningId, day, hour } = currentSlot;
+    
     try {
-      await fetch('/api/slots', {
+      const response = await fetch('/api/slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -275,6 +276,15 @@ export default function Planning() {
           date: new Date(),
         }),
       });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la création du slot');
+      }
+
+      const data = await response.json();
+      const createdSlot = data.slot;
+
+      // ✅ Utiliser le vrai ID du slot depuis la DB
       setPlannings(prev => prev.map(planning => {
         if (planning.id === planningId) {
           const key = `${day}-${hour}`;
@@ -282,17 +292,31 @@ export default function Planning() {
             ...planning,
             slots: {
               ...planning.slots,
-              [key]: { day, hour, city },
+              [key]: { 
+                day, 
+                hour, 
+                city: {
+                  id: createdSlot.id, // ✅ Vrai ID du slot
+                  name: city.name,
+                  postalCode: city.postalCode,
+                  latitude: city.latitude,
+                  longitude: city.longitude,
+                }
+              },
             },
           };
         }
         return planning;
       }));
+
       setShowCityModal(false);
       setCurrentSlot(null);
       setSearchedCities([]);
+
+      console.log('✅ Slot créé avec ID:', createdSlot.id);
     } catch (error) {
       console.error('Error creating slot:', error);
+      alert('Erreur lors de la création du créneau');
     }
   };
 
@@ -308,11 +332,10 @@ export default function Planning() {
     setSlotToDelete({ planningId, day, hour, slotId, cityName });
   };
 
-  // ✅ MODIFIÉ : Ajout du loading state
   const confirmDeleteSlot = async () => {
     if (!slotToDelete) return;
 
-    setIsDeletingSlot(true); // ✅ Activer le loading
+    setIsDeletingSlot(true);
 
     try {
       const response = await fetch(`/api/slots/${slotToDelete.slotId}`, {
@@ -338,7 +361,7 @@ export default function Planning() {
       console.error('Error deleting slot:', error);
       alert('Erreur lors de la suppression du créneau');
     } finally {
-      setIsDeletingSlot(false); // ✅ Désactiver le loading
+      setIsDeletingSlot(false);
     }
   };
 
@@ -395,14 +418,16 @@ export default function Planning() {
     router.push('/auth/login');
   };
 
+  // ✅ CORRIGÉ : Récupérer le vrai ID du slot créé
   const handleAddSuggestion = async (suggestion: GeminiSuggestion) => {
     if (plannings.length === 0) {
       alert('Créez d\'abord un planning');
       return;
     }
     const targetPlanning = plannings[0];
+    
     try {
-      await fetch('/api/slots', {
+      const response = await fetch('/api/slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -416,6 +441,15 @@ export default function Planning() {
           date: new Date(),
         }),
       });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la création du slot');
+      }
+
+      const data = await response.json();
+      const createdSlot = data.slot;
+
+      // ✅ Utiliser le vrai ID du slot
       setPlannings(prev => prev.map(planning => {
         if (planning.id === targetPlanning.id) {
           const key = `${suggestion.day}-${suggestion.hour}`;
@@ -427,7 +461,7 @@ export default function Planning() {
                 day: suggestion.day,
                 hour: suggestion.hour,
                 city: {
-                  id: suggestion.id,
+                  id: createdSlot.id, // ✅ Vrai ID du slot
                   name: suggestion.city,
                   postalCode: suggestion.postalCode,
                   latitude: suggestion.latitude,
@@ -439,6 +473,7 @@ export default function Planning() {
         }
         return planning;
       }));
+      
       alert('Créneau ajouté avec succès !');
     } catch (error) {
       console.error('Error adding suggestion:', error);
@@ -606,20 +641,16 @@ export default function Planning() {
                             </div>
                             
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // ✅ Important pour ne pas ouvrir la modale d'ajout
-                                if (slot.city?.id) {
-                                  handleDeleteSlot(
-                                    e, 
-                                    planning.id, 
-                                    day, 
-                                    hour, 
-                                    slot.city.id, // C'est cet ID qui sera envoyé à l'API
-                                    slot.city.name
-                                  );
-                                }
-                              }}
-                              className="absolute top-2 right-2 p-1 bg-red-500 ..."
+                              onClick={(e) => slot.city && handleDeleteSlot(
+                                e, 
+                                planning.id, 
+                                day, 
+                                hour, 
+                                slot.city.id, 
+                                slot.city.name
+                              )}
+                              className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover/cell:opacity-100 hover:bg-red-600 transition-all shadow-md"
+                              title="Supprimer ce créneau"
                             >
                               <X size={14} />
                             </button>
@@ -647,7 +678,6 @@ export default function Planning() {
         )}
       </div>
 
-      {/* ✅ Modale de confirmation avec loading */}
       {slotToDelete && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl animate-in fade-in zoom-in duration-200">
@@ -659,14 +689,14 @@ export default function Planning() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setSlotToDelete(null)}
-                disabled={isDeletingSlot} // ✅ Désactiver pendant le chargement
+                disabled={isDeletingSlot}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
               >
                 Annuler
               </button>
               <button
                 onClick={confirmDeleteSlot}
-                disabled={isDeletingSlot} // ✅ Désactiver pendant le chargement
+                disabled={isDeletingSlot}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center"
               >
                 {isDeletingSlot ? (
