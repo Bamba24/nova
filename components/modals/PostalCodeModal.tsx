@@ -1,7 +1,18 @@
 'use client';
 
-import { PostalCodeModalProps } from '@/types';
 import { useState } from 'react';
+
+interface PostalCodeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  postalCode: string;
+  setPostalCode: (value: string) => void;
+  onConfirm: () => void;
+  countryCode?: string;
+  plannings?: Array<{ id: string; name: string }>;
+  selectedPlanningId?: string;
+  setSelectedPlanningId?: (id: string) => void;
+}
 
 export default function PostalCodeModal({ 
   isOpen, 
@@ -9,11 +20,19 @@ export default function PostalCodeModal({
   postalCode, 
   setPostalCode, 
   onConfirm,
-  countryCode = ''
+  countryCode = '',
+  plannings = [],
+  selectedPlanningId = '',
+  setSelectedPlanningId,
 }: PostalCodeModalProps) {
   const [isSearching, setIsSearching] = useState(false);
 
   const handleConfirm = async () => {
+    if (!selectedPlanningId && setSelectedPlanningId) {
+      alert('Veuillez sélectionner un planning');
+      return;
+    }
+    
     setIsSearching(true);
     await onConfirm();
     setIsSearching(false);
@@ -22,8 +41,8 @@ export default function PostalCodeModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-1000 flex items-start justify-center bg-black/10 backdrop-blur-sm bg-opacity-50">
-      <div className="bg-white my-[5%] mx-auto p-6 rounded-xl w-[90%] max-w-200 max-h-[80vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[1000] flex items-start justify-center bg-black/10 backdrop-blur-sm bg-opacity-50">
+      <div className="bg-white my-[5%] mx-auto p-6 rounded-xl w-[90%] max-w-[800px] max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-2xl text-gray-800 m-0">Suggérer un créneau</h3>
           <span 
@@ -35,6 +54,30 @@ export default function PostalCodeModal({
         </div>
         
         <div className="py-5">
+          {/* ✅ Select planning */}
+          {plannings.length > 0 && setSelectedPlanningId && (
+            <div className="mb-5">
+              <label htmlFor="planningSelect" className="block mb-2 text-gray-700 font-medium">
+                Planning cible :
+              </label>
+              <select
+                id="planningSelect"
+                value={selectedPlanningId}
+                onChange={(e) => setSelectedPlanningId(e.target.value)}
+                className="w-full p-2.5 border border-gray-300 rounded-md text-base transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20"
+                disabled={isSearching}
+              >
+                <option value="">-- Sélectionnez un planning --</option>
+                {plannings.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Code postal */}
           <div className="mb-5">
             <label htmlFor="postalCode" className="block mb-2 text-gray-700 font-medium">
               Code postal :
@@ -50,7 +93,7 @@ export default function PostalCodeModal({
                 onKeyDown={(e) => e.key === 'Enter' && !isSearching && handleConfirm()}
                 disabled={isSearching}
               />
-              <span className="px-2.5 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 text-sm" id="displayCountryCode">
+              <span className="px-2.5 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 text-sm">
                 {countryCode}
               </span>
             </div>

@@ -78,9 +78,6 @@ export default function Planning() {
   const [postalCode, setPostalCode] = useState('');
   const [searchedCities, setSearchedCities] = useState<City[]>([]);
 
-  // ✅ NOUVEAU : Planning sélectionné pour les suggestions
-  const [selectedPlanningForSuggestion, setSelectedPlanningForSuggestion] = useState<string>('');
-
   /* --- État suppression --- */
   const [slotToDelete, setSlotToDelete] = useState<{
     planningId: string;
@@ -259,6 +256,7 @@ export default function Planning() {
     }
   };
 
+  // ✅ CORRIGÉ : Récupérer le vrai ID du slot créé
   const handleCitySelect = async (city: City) => {
     if (!currentSlot) return;
     const { planningId, day, hour } = currentSlot;
@@ -286,6 +284,7 @@ export default function Planning() {
       const data = await response.json();
       const createdSlot = data.slot;
 
+      // ✅ Utiliser le vrai ID du slot depuis la DB
       setPlannings(prev => prev.map(planning => {
         if (planning.id === planningId) {
           const key = `${day}-${hour}`;
@@ -297,7 +296,7 @@ export default function Planning() {
                 day, 
                 hour, 
                 city: {
-                  id: createdSlot.id,
+                  id: createdSlot.id, // ✅ Vrai ID du slot
                   name: city.name,
                   postalCode: city.postalCode,
                   latitude: city.latitude,
@@ -372,17 +371,18 @@ export default function Planning() {
     );
   };
 
-  // ✅ MODIFIÉ : Utiliser le planning sélectionné
   const confirmPostalCode = async () => {
     if (!postalCode.trim()) {
       alert('Veuillez entrer un code postal');
       return;
     }
 
-    if (!selectedPlanningForSuggestion) {
-      alert('Veuillez sélectionner un planning');
+    if (plannings.length === 0) {
+      alert('Créez d\'abord un planning pour recevoir des suggestions');
       return;
     }
+
+    const targetPlanningId = plannings[0].id;
 
     setShowPostalCodeModal(false);
     setIsCalculating(true);
@@ -394,7 +394,7 @@ export default function Planning() {
         body: JSON.stringify({ 
           postalCode, 
           countryCode: selectedCountry,
-          planningId: selectedPlanningForSuggestion // ✅ Utiliser le planning sélectionné
+          planningId: targetPlanningId
         }),
       });
 
@@ -418,18 +418,13 @@ export default function Planning() {
     router.push('/auth/login');
   };
 
-  // ✅ MODIFIÉ : Ajouter au planning sélectionné
+  // ✅ CORRIGÉ : Récupérer le vrai ID du slot créé
   const handleAddSuggestion = async (suggestion: GeminiSuggestion) => {
-    if (!selectedPlanningForSuggestion) {
-      alert('Erreur : planning non sélectionné');
+    if (plannings.length === 0) {
+      alert('Créez d\'abord un planning');
       return;
     }
-
-    const targetPlanning = plannings.find(p => p.id === selectedPlanningForSuggestion);
-    if (!targetPlanning) {
-      alert('Planning introuvable');
-      return;
-    }
+    const targetPlanning = plannings[0];
     
     try {
       const response = await fetch('/api/slots', {
@@ -454,6 +449,7 @@ export default function Planning() {
       const data = await response.json();
       const createdSlot = data.slot;
 
+      // ✅ Utiliser le vrai ID du slot
       setPlannings(prev => prev.map(planning => {
         if (planning.id === targetPlanning.id) {
           const key = `${suggestion.day}-${suggestion.hour}`;
@@ -465,7 +461,7 @@ export default function Planning() {
                 day: suggestion.day,
                 hour: suggestion.hour,
                 city: {
-                  id: createdSlot.id,
+                  id: createdSlot.id, // ✅ Vrai ID du slot
                   name: suggestion.city,
                   postalCode: suggestion.postalCode,
                   latitude: suggestion.latitude,
@@ -488,9 +484,6 @@ export default function Planning() {
   const filteredCities = searchedCities.filter(city =>
     city.name.toLowerCase().includes(citySearch.toLowerCase())
   );
-
-  // ✅ NOUVEAU : Filtrer les plannings par pays sélectionné
-  const filteredPlannings = plannings.filter(p => p.country === selectedCountry);
 
   return (
     <div className="p-5 bg-slate-50 min-h-screen font-['Poppins']">
@@ -551,7 +544,6 @@ export default function Planning() {
         )}
 
         <div className="flex gap-4 mb-8 flex-wrap items-center justify-center p-6 bg-gray-50 rounded-xl border border-gray-100">
-          {/* ✅ Sélecteur de pays */}
           <select 
             value={selectedCountry}
             onChange={(e) => setSelectedCountry(e.target.value)}
@@ -581,8 +573,7 @@ export default function Planning() {
 
           <button
             onClick={() => setShowPostalCodeModal(true)}
-            disabled={filteredPlannings.length === 0}
-            className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-all shadow-md active:scale-95"
           >
             Suggérer un Créneau
           </button>
@@ -596,8 +587,7 @@ export default function Planning() {
           </button>
         </div>
 
-        {/* ✅ Afficher uniquement les plannings du pays sélectionné */}
-        {filteredPlannings.map((planning) => (
+        {plannings.map((planning) => (
           <div key={planning.id} className="mb-10">
             <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200">
               <div className="bg-blue-600 h-16 text-xl text-white flex justify-between items-center px-6 font-bold tracking-wide uppercase">
@@ -680,10 +670,10 @@ export default function Planning() {
           </div>
         ))}
 
-        {filteredPlannings.length === 0 && (
+        {plannings.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-lg mb-4">Aucun planning pour {COUNTRIES.find(c => c.code === selectedCountry)?.name}</p>
-            <p className="text-sm">Créez un nouveau planning pour ce pays</p>
+            <p className="text-lg mb-4">Aucun planning créé</p>
+            <p className="text-sm">Cliquez sur &quot;Nouveau Planning&quot; pour commencer</p>
           </div>
         )}
       </div>
@@ -751,7 +741,6 @@ export default function Planning() {
         onConfirm={handleConfirmNewPlanning}
       />
 
-      {/* ✅ MODIFIÉ : Passer les plannings filtrés à la modale */}
       <PostalCodeModal
         isOpen={showPostalCodeModal}
         onClose={() => setShowPostalCodeModal(false)}
@@ -759,9 +748,6 @@ export default function Planning() {
         setPostalCode={setPostalCode}
         onConfirm={confirmPostalCode}
         countryCode={selectedCountry}
-        plannings={filteredPlannings.map(p => ({ id: p.id, name: p.name }))}
-        selectedPlanningId={selectedPlanningForSuggestion}
-        setSelectedPlanningId={setSelectedPlanningForSuggestion}
       />
     </div>
   );
