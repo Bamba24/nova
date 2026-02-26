@@ -53,6 +53,7 @@ export async function getCitiesFromPostalCode(
     }));
 
   } catch (error) {
+    console.error("Erreur récupération villes:", error);
     return [];
   }
 }

@@ -27,9 +27,11 @@ export async function GET(request: NextRequest) {
       success: true,
       plannings,
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching plannings:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération' },
+      { error: 'Erreur lors de la récupération', details: errorMessage },
       { status: 500 }
     );
   }

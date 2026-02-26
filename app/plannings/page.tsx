@@ -353,10 +353,12 @@ export default function Planning() {
           return planning;
         }));
         setSlotToDelete(null);
+        console.log('✅ Créneau supprimé');
       } else {
         alert('Erreur lors de la suppression du créneau');
       }
     } catch (error) {
+      console.error('Error deleting slot:', error);
       alert('Erreur lors de la suppression du créneau');
     } finally {
       setIsDeletingSlot(false);
@@ -432,6 +434,7 @@ const confirmPostalCode = async (selectedCity?: {
       alert('Erreur lors de la génération des suggestions');
     }
   } catch (error) {
+    console.error('Error:', error);
     alert('Erreur lors de la génération des suggestions');
   } finally {
     setIsCalculating(false);
@@ -505,6 +508,7 @@ const confirmPostalCode = async (selectedCity?: {
       
       alert('Créneau ajouté avec succès !');
     } catch (error) {
+      console.error('Error adding suggestion:', error);
       alert('Erreur lors de l\'ajout du créneau');
     }
   };

@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ users });
   } catch (error) {
+    console.error('Error fetching users:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des utilisateurs' },
       { status: 500 }
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    console.error('Error creating user:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la création de l\'utilisateur' },
       { status: 500 }

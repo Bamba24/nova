@@ -58,9 +58,11 @@ export async function DELETE(
       message: 'Créneau supprimé'
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error deleting slot:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la suppression' },
+      { error: 'Erreur lors de la suppression', details: errorMessage },
       { status: 500 }
     );
   }

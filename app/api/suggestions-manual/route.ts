@@ -132,9 +132,11 @@ export async function POST(request: NextRequest) {
       longitude
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error('❌ Erreur:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
     return NextResponse.json(
-      { error: 'Erreur lors du calcul' },
+      { error: 'Erreur lors du calcul', details: errorMessage },
       { status: 500 }
     );
   }

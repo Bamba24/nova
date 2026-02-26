@@ -47,7 +47,7 @@ export async function createAdminLog({
       },
     });
   } catch (error) {
-    console.error('Erreur log:');
+    console.error('❌ Erreur log:', error);
   }
 }
 
