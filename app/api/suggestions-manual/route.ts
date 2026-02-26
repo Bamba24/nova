@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
-import { getCoordinatesFromPostalCode } from '@/lib/geocoding';
+import { getCitiesFromPostalCode } from '@/lib/geocoding';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 
@@ -39,7 +39,6 @@ interface Suggestion {
   duration: string;
 }
 
-// Calcul de distance avec l'API OSRM (distance routière réelle)
 async function calculateOSRMDistance(coord1: SlotCoordinates, coord2: SlotCoordinates) {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${coord1.longitude},${coord1.latitude};${coord2.longitude},${coord2.latitude}?overview=false`;
@@ -49,8 +48,8 @@ async function calculateOSRMDistance(coord1: SlotCoordinates, coord2: SlotCoordi
     
     if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
       const route = data.routes[0];
-      const distance = route.distance / 1000; // Convertir en km
-      const duration = route.duration; // en secondes
+      const distance = route.distance / 1000;
+      const duration = route.duration;
       
       const hours = Math.floor(duration / 3600);
       const minutes = Math.round((duration % 3600) / 60);
@@ -79,7 +78,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { postalCode, countryCode = 'FR', planningId } = body;
+    const { postalCode, countryCode = 'FR', planningId, cityName, latitude, longitude } = body;
 
     if (!postalCode) {
       return NextResponse.json({ error: 'Code postal requis' }, { status: 400 });
@@ -89,170 +88,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Planning ID requis' }, { status: 400 });
     }
 
-    console.log(`🔍 Calcul suggestions pour ${postalCode}`);
-
-    // 1. Obtenir les coordonnées du nouveau point
-    const newLocation = await getCoordinatesFromPostalCode(postalCode);
-    if (!newLocation) {
-      return NextResponse.json({ error: 'Code postal invalide' }, { status: 400 });
-    }
-
-    console.log(`📍 Nouveau point: ${newLocation.city}`);
-
-    // 2. Récupérer le planning avec ses créneaux
-    const planning = await prisma.planning.findUnique({
-      where: { id: planningId, userId: user.userId },
-      include: { slots: true }
-    });
-
-    if (!planning) {
-      return NextResponse.json({ error: 'Planning introuvable' }, { status: 404 });
-    }
-
-    const hours = planning.hours as string[];
-    
-    // 3. Organiser les créneaux par jour
-    const daySchedules: Record<string, {
-      occupiedSlots: ExistingSlot[];
-      freeHours: string[];
-    }> = {};
-
-    for (const day of DAYS) {
-      daySchedules[day] = {
-        occupiedSlots: [],
-        freeHours: [...hours]
-      };
-
-      // Identifier les créneaux occupés
-      const occupiedSlots = planning.slots.filter(s => s.day === day);
+    // ✅ Si pas de ville spécifiée, retourner la liste des villes disponibles
+    if (!cityName || !latitude || !longitude) {
+      console.log(`🔍 Recherche villes pour ${postalCode}`);
+      const cities = await getCitiesFromPostalCode(postalCode, 10);
       
-      occupiedSlots.forEach(slot => {
-        daySchedules[day].occupiedSlots.push({
-          day: slot.day,
-          hour: slot.hour,
-          city: slot.city,
-          postalCode: slot.postalCode,
-          coordinates: {
-            latitude: slot.latitude,
-            longitude: slot.longitude
-          }
-        });
-
-        // Retirer l'heure de la liste des heures libres
-        const hourIndex = daySchedules[day].freeHours.indexOf(slot.hour);
-        if (hourIndex > -1) {
-          daySchedules[day].freeHours.splice(hourIndex, 1);
-        }
-      });
-    }
-
-    console.log('📊 Analyse des créneaux...');
-
-    // 4. Calculer les scores pour chaque créneau libre
-    const allSuggestions: Suggestion[] = [];
-
-    for (const day of DAYS) {
-      const { occupiedSlots, freeHours } = daySchedules[day];
-
-      if (freeHours.length === 0) continue; // Pas de créneaux libres ce jour
-
-      for (const freeHour of freeHours) {
-        let score = 0;
-        let totalDistance = 0;
-        let countDistances = 0;
-        let nearestDistance = Infinity;
-        let nearestLocation = '';
-        let nearestDuration = { hours: 0, minutes: 0, text: '0min' };
-
-        // Calculer les distances avec tous les créneaux occupés du même jour
-        for (const occupied of occupiedSlots) {
-          const result = await calculateOSRMDistance(
-            occupied.coordinates,
-            { latitude: newLocation.latitude, longitude: newLocation.longitude }
-          );
-
-          if (result) {
-            totalDistance += result.distance;
-            countDistances++;
-
-            // Garder le point le plus proche
-            if (result.distance < nearestDistance) {
-              nearestDistance = result.distance;
-              nearestLocation = `${occupied.postalCode} - ${occupied.city}`;
-              nearestDuration = result.duration;
-            }
-
-            // Bonus pour créneaux proches temporellement
-            const hourDiff = Math.abs(hours.indexOf(freeHour) - hours.indexOf(occupied.hour));
-            if (hourDiff === 1) score += 5;
-            else if (hourDiff === 2) score += 3;
-          }
-        }
-
-        // Si on a trouvé au moins une distance
-        if (countDistances > 0) {
-          const averageDistance = totalDistance / countDistances;
-          const finalScore = score - averageDistance;
-          const compatibility = Math.round(Math.max(0, Math.min(100, (finalScore + 100) / 2)));
-
-          allSuggestions.push({
-            day,
-            hour: freeHour,
-            score: finalScore,
-            averageDistance,
-            nearestDistance,
-            nearestLocation,
-            nearestDuration,
-            city: newLocation.city,
-            postalCode,
-            latitude: newLocation.latitude,
-            longitude: newLocation.longitude,
-            compatibility,
-            distance: Math.round(nearestDistance * 10) / 10,
-            duration: nearestDuration.text,
-          });
-        }
+      if (cities.length === 0) {
+        return NextResponse.json({ error: 'Code postal invalide' }, { status: 400 });
       }
-    }
 
-    console.log(`✅ ${allSuggestions.length} créneaux analysés`);
+      // Si une seule ville, continuer automatiquement
+      if (cities.length === 1) {
+        // Utiliser la ville unique
+        const singleCity = cities[0];
+        return calculateSuggestions(
+          user.userId,
+          planningId,
+          postalCode,
+          singleCity.city,
+          singleCity.latitude,
+          singleCity.longitude
+        );
+      }
 
-    if (allSuggestions.length === 0) {
+      // Plusieurs villes : retourner la liste pour sélection
       return NextResponse.json({
-        success: true,
-        suggestions: [],
-        message: 'Aucun créneau libre trouvé'
+        requiresCitySelection: true,
+        cities: cities.map(c => ({
+          name: c.city,
+          postalCode: c.postalCode,
+          latitude: c.latitude,
+          longitude: c.longitude,
+        })),
       });
     }
 
-    // 5. Trier par score décroissant et prendre les 6 meilleurs
-    allSuggestions.sort((a, b) => b.score - a.score);
-    const bestSuggestions = allSuggestions.slice(0, 6);
-
-    // 6. Enrichir pour correspondre au format attendu par le frontend
-    const enrichedSuggestions = bestSuggestions.map((s, index) => ({
-      id: `suggestion-${Date.now()}-${index}`,
-      title: `Suggestion ${index + 1}`,
-      day: s.day,
-      hour: s.hour,
-      city: s.city,
-      postalCode: s.postalCode,
-      latitude: s.latitude,
-      longitude: s.longitude,
-      distance: s.distance,
-      duration: s.duration,
-      compatibility: s.compatibility,
-      diffDistance: s.averageDistance,
-      reasoning: `Point le plus proche : ${s.nearestLocation} à ${s.distance} km`
-    }));
-
-    console.log(`📦 ${enrichedSuggestions.length} meilleures suggestions retournées`);
-
-    return NextResponse.json({
-      success: true,
-      suggestions: enrichedSuggestions,
-      reasoning: `Suggestions basées sur ${allSuggestions.length} créneaux libres analysés`
-    });
+    // ✅ Ville spécifiée : calculer les suggestions
+    return calculateSuggestions(
+      user.userId,
+      planningId,
+      postalCode,
+      cityName,
+      latitude,
+      longitude
+    );
 
   } catch (error: unknown) {
     console.error('❌ Erreur:', error);
@@ -262,4 +141,160 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// ✅ Fonction séparée pour le calcul des suggestions
+async function calculateSuggestions(
+  userId: string,
+  planningId: string,
+  postalCode: string,
+  cityName: string,
+  latitude: number,
+  longitude: number
+) {
+  console.log(`🔍 Calcul suggestions pour ${postalCode} - ${cityName}`);
+
+  const planning = await prisma.planning.findUnique({
+    where: { id: planningId, userId },
+    include: { slots: true }
+  });
+
+  if (!planning) {
+    return NextResponse.json({ error: 'Planning introuvable' }, { status: 404 });
+  }
+
+  const hours = planning.hours as string[];
+  
+  const daySchedules: Record<string, {
+    occupiedSlots: ExistingSlot[];
+    freeHours: string[];
+  }> = {};
+
+  for (const day of DAYS) {
+    daySchedules[day] = {
+      occupiedSlots: [],
+      freeHours: [...hours]
+    };
+
+    const occupiedSlots = planning.slots.filter(s => s.day === day);
+    
+    occupiedSlots.forEach(slot => {
+      daySchedules[day].occupiedSlots.push({
+        day: slot.day,
+        hour: slot.hour,
+        city: slot.city,
+        postalCode: slot.postalCode,
+        coordinates: {
+          latitude: slot.latitude,
+          longitude: slot.longitude
+        }
+      });
+
+      const hourIndex = daySchedules[day].freeHours.indexOf(slot.hour);
+      if (hourIndex > -1) {
+        daySchedules[day].freeHours.splice(hourIndex, 1);
+      }
+    });
+  }
+
+  console.log('📊 Analyse des créneaux...');
+
+  const allSuggestions: Suggestion[] = [];
+
+  for (const day of DAYS) {
+    const { occupiedSlots, freeHours } = daySchedules[day];
+
+    if (freeHours.length === 0) continue;
+
+    for (const freeHour of freeHours) {
+      let score = 0;
+      let totalDistance = 0;
+      let countDistances = 0;
+      let nearestDistance = Infinity;
+      let nearestLocation = '';
+      let nearestDuration = { hours: 0, minutes: 0, text: '0min' };
+
+      for (const occupied of occupiedSlots) {
+        const result = await calculateOSRMDistance(
+          occupied.coordinates,
+          { latitude, longitude }
+        );
+
+        if (result) {
+          totalDistance += result.distance;
+          countDistances++;
+
+          if (result.distance < nearestDistance) {
+            nearestDistance = result.distance;
+            nearestLocation = `${occupied.postalCode} - ${occupied.city}`;
+            nearestDuration = result.duration;
+          }
+
+          const hourDiff = Math.abs(hours.indexOf(freeHour) - hours.indexOf(occupied.hour));
+          if (hourDiff === 1) score += 5;
+          else if (hourDiff === 2) score += 3;
+        }
+      }
+
+      if (countDistances > 0) {
+        const averageDistance = totalDistance / countDistances;
+        const finalScore = score - averageDistance;
+        const compatibility = Math.round(Math.max(0, Math.min(100, (finalScore + 100) / 2)));
+
+        allSuggestions.push({
+          day,
+          hour: freeHour,
+          score: finalScore,
+          averageDistance,
+          nearestDistance,
+          nearestLocation,
+          nearestDuration,
+          city: cityName,
+          postalCode,
+          latitude,
+          longitude,
+          compatibility,
+          distance: Math.round(nearestDistance * 10) / 10,
+          duration: nearestDuration.text,
+        });
+      }
+    }
+  }
+
+  console.log(`✅ ${allSuggestions.length} créneaux analysés`);
+
+  if (allSuggestions.length === 0) {
+    return NextResponse.json({
+      success: true,
+      suggestions: [],
+      message: 'Aucun créneau libre trouvé'
+    });
+  }
+
+  allSuggestions.sort((a, b) => b.score - a.score);
+  const bestSuggestions = allSuggestions.slice(0, 6);
+
+  const enrichedSuggestions = bestSuggestions.map((s, index) => ({
+    id: `suggestion-${Date.now()}-${index}`,
+    title: `Suggestion ${index + 1}`,
+    day: s.day,
+    hour: s.hour,
+    city: s.city,
+    postalCode: s.postalCode,
+    latitude: s.latitude,
+    longitude: s.longitude,
+    distance: s.distance,
+    duration: s.duration,
+    compatibility: s.compatibility,
+    diffDistance: s.averageDistance,
+    reasoning: `Point le plus proche : ${s.nearestLocation} à ${s.distance} km`
+  }));
+
+  console.log(`📦 ${enrichedSuggestions.length} meilleures suggestions retournées`);
+
+  return NextResponse.json({
+    success: true,
+    suggestions: enrichedSuggestions,
+    reasoning: `Suggestions basées sur ${allSuggestions.length} créneaux libres analysés`
+  });
 }

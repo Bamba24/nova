@@ -372,46 +372,75 @@ export default function Planning() {
     );
   };
 
-  // ✅ MODIFIÉ : Utiliser le planning sélectionné
-  const confirmPostalCode = async () => {
-    if (!postalCode.trim()) {
-      alert('Veuillez entrer un code postal');
-      return;
+  // ✅ MODIFIÉ : Gérer la sélection de ville
+const confirmPostalCode = async (selectedCity?: { 
+  name: string; 
+  postalCode: string; 
+  latitude: number; 
+  longitude: number; 
+}) => {
+  if (!postalCode.trim() && !selectedCity) {
+    alert('Veuillez entrer un code postal');
+    return;
+  }
+
+  if (!selectedPlanningForSuggestion) {
+    alert('Veuillez sélectionner un planning');
+    return;
+  }
+
+  setShowPostalCodeModal(false);
+  setIsCalculating(true);
+
+  try {
+    const requestBody: {
+      postalCode: string;
+      countryCode: string;
+      planningId: string;
+      cityName?: string;
+      latitude?: number;
+      longitude?: number;
+    } = {
+      postalCode: selectedCity?.postalCode || postalCode,
+      countryCode: selectedCountry,
+      planningId: selectedPlanningForSuggestion,
+    };
+
+    // Si une ville spécifique est sélectionnée, l'ajouter
+    if (selectedCity) {
+      requestBody.cityName = selectedCity.name;
+      requestBody.latitude = selectedCity.latitude;
+      requestBody.longitude = selectedCity.longitude;
     }
 
-    if (!selectedPlanningForSuggestion) {
-      alert('Veuillez sélectionner un planning');
-      return;
-    }
+    const response = await fetch('/api/suggestions-manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
 
-    setShowPostalCodeModal(false);
-    setIsCalculating(true);
-
-    try {
-      const response = await fetch('/api/suggestions-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          postalCode, 
-          countryCode: selectedCountry,
-          planningId: selectedPlanningForSuggestion // ✅ Utiliser le planning sélectionné
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSuggestions(data.suggestions);
-        setShowSuggestions(true);
-      } else {
-        alert('Erreur lors de la génération des suggestions');
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Si requiresCitySelection, la modale gérera ça
+      if (data.requiresCitySelection) {
+        setIsCalculating(false);
+        setShowPostalCodeModal(true);
+        return;
       }
-    } catch (error) {
-      console.error('Error:', error);
+
+      setSuggestions(data.suggestions);
+      setShowSuggestions(true);
+    } else {
       alert('Erreur lors de la génération des suggestions');
-    } finally {
-      setIsCalculating(false);
     }
-  };
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Erreur lors de la génération des suggestions');
+  } finally {
+    setIsCalculating(false);
+  }
+};
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
