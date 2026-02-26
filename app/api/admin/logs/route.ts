@@ -41,10 +41,8 @@ export async function GET(request: NextRequest) {
       logs,
     });
   } catch (error: unknown) {
-    const err = error as Error;
-    console.error('❌ Error fetching logs:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la récupération des logs', details: err.message },
+      { error: 'Erreur lors de la récupération des logs'},
       { status: 500 }
     );
   }

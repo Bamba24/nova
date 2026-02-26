@@ -314,7 +314,6 @@ export default function Planning() {
       setCurrentSlot(null);
       setSearchedCities([]);
 
-      console.log('✅ Slot créé avec ID:', createdSlot.id);
     } catch (error) {
       console.error('Error creating slot:', error);
       alert('Erreur lors de la création du créneau');
@@ -354,12 +353,10 @@ export default function Planning() {
           return planning;
         }));
         setSlotToDelete(null);
-        console.log('✅ Créneau supprimé');
       } else {
         alert('Erreur lors de la suppression du créneau');
       }
     } catch (error) {
-      console.error('Error deleting slot:', error);
       alert('Erreur lors de la suppression du créneau');
     } finally {
       setIsDeletingSlot(false);
@@ -435,7 +432,6 @@ const confirmPostalCode = async (selectedCity?: {
       alert('Erreur lors de la génération des suggestions');
     }
   } catch (error) {
-    console.error('Error:', error);
     alert('Erreur lors de la génération des suggestions');
   } finally {
     setIsCalculating(false);
@@ -509,7 +505,6 @@ const confirmPostalCode = async (selectedCity?: {
       
       alert('Créneau ajouté avec succès !');
     } catch (error) {
-      console.error('Error adding suggestion:', error);
       alert('Erreur lors de l\'ajout du créneau');
     }
   };
@@ -544,7 +539,7 @@ const confirmPostalCode = async (selectedCity?: {
               {suggestions.map((s) => (
                 <div
                   key={s.id}
-                  className="min-w-[300px] bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4"
+                  className="min-w-75 bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex flex-col gap-4"
                 >
                   <div>
                     <h4 className="text-gray-400 font-medium text-sm mb-1">{s.title}</h4>
@@ -584,7 +579,7 @@ const confirmPostalCode = async (selectedCity?: {
           <select 
             value={selectedCountry}
             onChange={(e) => setSelectedCountry(e.target.value)}
-            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-[180px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-45 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           >
             {COUNTRIES.map(country => (
               <option key={country.code} value={country.code}>
@@ -598,7 +593,7 @@ const confirmPostalCode = async (selectedCity?: {
             value={quickPlanningName}
             onChange={(e) => setQuickPlanningName(e.target.value)}
             placeholder="Nom du planning"
-            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-[220px] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            className="px-4 py-3 rounded-lg border border-gray-300 bg-white min-w-55 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           />
 
           <button
@@ -666,7 +661,7 @@ const confirmPostalCode = async (selectedCity?: {
                       <div
                         key={slotKey}
                         onClick={() => handleCellClick(planning.id, day, hour)}
-                        className={`p-4 border-l border-gray-100 min-h-[100px] transition-all flex flex-col items-center justify-center relative group/cell ${
+                        className={`p-4 border-l border-gray-100 min-h-25 transition-all flex flex-col items-center justify-center relative group/cell ${
                           slot?.city 
                             ? 'bg-green-50 hover:bg-green-100 cursor-default' 
                             : 'hover:bg-blue-50 text-gray-300 hover:text-blue-500 cursor-pointer'
@@ -718,7 +713,7 @@ const confirmPostalCode = async (selectedCity?: {
       </div>
 
       {slotToDelete && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-1100 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-6 max-w-md mx-4 shadow-2xl animate-in fade-in zoom-in duration-200">
             <h3 className="text-xl font-bold text-gray-800 mb-4">Supprimer le créneau</h3>
             <p className="text-gray-600 mb-6">
@@ -736,7 +731,7 @@ const confirmPostalCode = async (selectedCity?: {
               <button
                 onClick={confirmDeleteSlot}
                 disabled={isDeletingSlot}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 flex items-center gap-2 min-w-[120px] justify-center"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 flex items-center gap-2 min-w-30 justify-center"
               >
                 {isDeletingSlot ? (
                   <>

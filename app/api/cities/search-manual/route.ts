@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ cities });
 
   } catch (error) {
-    console.error("Erreur API villes:", error);
     return NextResponse.json(
       { error: "Erreur recherche villes" },
       { status: 500 }

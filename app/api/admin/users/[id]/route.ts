@@ -66,11 +66,9 @@ export async function DELETE(
       success: true,
       message: 'Utilisateur supprimé',
     });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error deleting user:', error);
+  } catch (error) {
     return NextResponse.json(
-      { error: 'Erreur lors de la suppression', details: errorMessage },
+      { error: 'Erreur lors de la suppression' },
       { status: 500 }
     );
   }

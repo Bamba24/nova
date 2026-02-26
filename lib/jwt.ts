@@ -33,7 +33,6 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
     const { payload } = await jwtVerify(token, SECRET);
     return payload as JWTPayload;
   } catch (error) {
-    console.error('JWT verification failed:', error);
     return null;
   }
 }

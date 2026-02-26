@@ -46,9 +46,8 @@ export async function createAdminLog({
         ipAddress,
       },
     });
-    console.log(`📝 Log: ${action} par ${userId}`);
   } catch (error) {
-    console.error('❌ Erreur log:', error);
+    console.error('Erreur log:');
   }
 }
 

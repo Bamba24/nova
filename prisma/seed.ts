@@ -5,7 +5,6 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Début du seed...');
 
   // Créer un utilisateur admin
   const adminPassword = await bcrypt.hash('Admin123!', 10);
@@ -57,7 +56,6 @@ async function main() {
     },
   });
 
-  console.log('✅ Planning créé:', planning.name);
 
   // Créer quelques slots de test
   await prisma.slot.createMany({
@@ -86,9 +84,6 @@ async function main() {
       },
     ],
   });
-
-  console.log('✅ Slots créés');
-  console.log('\n🎉 Seed terminé avec succès!\n');
 }
 
 main()

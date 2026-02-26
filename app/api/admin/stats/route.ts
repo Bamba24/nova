@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching stats:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des statistiques' },
       { status: 500 }

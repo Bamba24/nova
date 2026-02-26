@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Registration error:', error);
     return NextResponse.json(
       { error: 'Erreur lors de l\'inscription' },
       { status: 500 }

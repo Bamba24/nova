@@ -39,7 +39,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ slots });
   } catch (error) {
-    console.error('Error fetching slots:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des créneaux' },
       { status: 500 }
@@ -115,11 +114,9 @@ export async function POST(request: NextRequest) {
       success: true,
       slot,
     });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating slot:', error);
+  } catch (error) {
     return NextResponse.json(
-      { error: 'Erreur lors de la création', details: errorMessage },
+      { error: 'Erreur lors de la création'},
       { status: 500 }
     );
   }

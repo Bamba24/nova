@@ -90,7 +90,6 @@ export async function POST(request: NextRequest) {
 
     // ✅ Si pas de ville spécifiée, retourner la liste des villes disponibles
     if (!cityName || !latitude || !longitude) {
-      console.log(`🔍 Recherche villes pour ${postalCode}`);
       const cities = await getCitiesFromPostalCode(postalCode, 10);
       
       if (cities.length === 0) {
@@ -133,11 +132,9 @@ export async function POST(request: NextRequest) {
       longitude
     );
 
-  } catch (error: unknown) {
-    console.error('❌ Erreur:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+  } catch (error) {
     return NextResponse.json(
-      { error: 'Erreur lors du calcul', details: errorMessage },
+      { error: 'Erreur lors du calcul' },
       { status: 500 }
     );
   }
@@ -152,7 +149,6 @@ async function calculateSuggestions(
   latitude: number,
   longitude: number
 ) {
-  console.log(`🔍 Calcul suggestions pour ${postalCode} - ${cityName}`);
 
   const planning = await prisma.planning.findUnique({
     where: { id: planningId, userId },
@@ -197,7 +193,6 @@ async function calculateSuggestions(
     });
   }
 
-  console.log('📊 Analyse des créneaux...');
 
   const allSuggestions: Suggestion[] = [];
 
@@ -261,7 +256,6 @@ async function calculateSuggestions(
     }
   }
 
-  console.log(`✅ ${allSuggestions.length} créneaux analysés`);
 
   if (allSuggestions.length === 0) {
     return NextResponse.json({
@@ -290,7 +284,6 @@ async function calculateSuggestions(
     reasoning: `Point le plus proche : ${s.nearestLocation} à ${s.distance} km`
   }));
 
-  console.log(`📦 ${enrichedSuggestions.length} meilleures suggestions retournées`);
 
   return NextResponse.json({
     success: true,

@@ -60,7 +60,6 @@ export async function PUT(
 
     return NextResponse.json({ success: true, user });
   } catch (error) {
-    console.error('Error changing role:', error);
     return NextResponse.json(
       { error: 'Erreur lors du changement de rôle' },
       { status: 500 }
